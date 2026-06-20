@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a0a2e">
+    <title>Bereguedê & Afins - Compras por PIX</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎫</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <!-- Floating logos -->
+    <div class="floating-logos" id="floating-logos" aria-hidden="true"></div>
+
+    <!-- ====== TELA: LOGIN ====== -->
+    <div id="screen-login" class="screen active">
+        <div class="login-container">
+            <img src="logo.png" class="login-logo" alt="Bereguedê & Afins">
+            <h1 class="login-title">Compras por PIX</h1>
+            <p class="login-subtitle">Faça login para continuar</p>
+            <form id="form-login" onsubmit="doLogin(event)">
+                <div class="form-group">
+                    <label for="login-user">Nome de usuário</label>
+                    <input type="text" id="login-user" placeholder="Seu nome de usuário" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-pass">Senha</label>
+                    <input type="password" id="login-pass" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+            </form>
+            <p id="login-error" class="login-error"></p>
+        </div>
+    </div>
+
+    <!-- ====== TELA: EVENTOS ====== -->
+    <div id="screen-events" class="screen">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-row">
+                    <img src="logo.png" class="header-logo" alt="">
+                    <h1 class="logo">Minhas Festas</h1>
+                </div>
+                <div class="header-right">
+                    <span id="user-name-display" class="user-name"></span>
+                    <button class="btn-icon-only btn-logout" onclick="doLogout()" title="Sair">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="screen-body">
+            <div id="events-list" class="events-grid"></div>
+            <div id="events-empty" class="empty-state" style="display:none">
+                <span class="empty-icon">🎉</span>
+                <p>Nenhuma festa disponível</p>
+            </div>
+
+            <!-- Botão criar evento (todos os usuários) -->
+            <div id="create-event-actions" style="margin-top:1rem">
+                <button class="btn btn-primary btn-block" onclick="openNewEventModal()">
+                    ➕ Criar Nova Festa
+                </button>
+            </div>
+
+            <!-- Admin: gerenciar contas -->
+            <div id="admin-section" style="display:none">
+                <div class="card" style="margin-top:1.5rem">
+                    <h2 class="card-title">👤 Administração</h2>
+                    <button class="btn btn-outline btn-block" onclick="openAdminPanel()" style="margin-bottom:0.5rem">
+                        Gerenciar Produtores
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== TELA: APP PRINCIPAL (dentro de um evento) ====== -->
+    <div id="screen-app" class="screen">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-row">
+                    <button class="btn-back" onclick="goBackToEvents()">←</button>
+                    <h1 class="logo" id="event-title-header">Festa</h1>
+                </div>
+                <div class="header-stats">
+                    <button class="btn-icon-only btn-edit-producers" onclick="openEditProducersModal()" title="Gerenciar Produtores">👥</button>
+                    <span id="header-count" class="badge">0</span>
+                </div>
+            </div>
+        </header>
+
+        <nav class="nav">
+            <button class="nav-btn active" data-tab="register" onclick="switchTab('register')">
+                <span class="nav-icon">➕</span>
+                <span class="nav-label">Registrar</span>
+            </button>
+            <button class="nav-btn" data-tab="list" onclick="switchTab('list')">
+                <span class="nav-icon">📋</span>
+                <span class="nav-label">Lista</span>
+            </button>
+            <button class="nav-btn" data-tab="checkin" onclick="switchTab('checkin')">
+                <span class="nav-icon">✅</span>
+                <span class="nav-label">Check-in</span>
+            </button>
+            <button class="nav-btn" data-tab="dashboard" onclick="switchTab('dashboard')">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Painel</span>
+            </button>
+        </nav>
+
+        <!-- Tab: Registrar -->
+        <section id="tab-register" class="tab-content active">
+            <div class="card">
+                <h2 class="card-title">Novo Ingresso</h2>
+                <form id="form-register" onsubmit="addGuest(event)">
+                    <div class="form-group">
+                        <label for="guest-name">Nome completo *</label>
+                        <input type="text" id="guest-name" placeholder="Ex: João Silva" required autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="guest-lote">Lote *</label>
+                        <select id="guest-lote" required>
+                            <option value="">Selecione o lote</option>
+                            <option value="1º Lote">1º Lote</option>
+                            <option value="2º Lote">2º Lote</option>
+                            <option value="3º Lote">3º Lote</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="guest-value">Valor pago (R$) *</label>
+                        <input type="text" id="guest-value" inputmode="numeric" placeholder="R$ 0,00" required oninput="formatMoneyInput(this)">
+                    </div>
+                    <div class="form-group">
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="guest-discount" onchange="toggleDiscountField()">
+                            <label for="guest-discount" class="checkbox-label">Teve desconto?</label>
+                        </div>
+                    </div>
+                    <div class="form-group" id="discount-info-group" style="display:none">
+                        <label for="guest-discount-info">Valor do desconto (R$)</label>
+                        <input type="text" id="guest-discount-info" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off" oninput="formatMoneyInput(this)">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <span class="btn-icon">🎫</span> Registrar Ingresso
+                    </button>
+                </form>
+            </div>
+            <div class="card" id="recent-card" style="display:none">
+                <h2 class="card-title">Últimos registros</h2>
+                <div id="recent-list"></div>
+            </div>
+        </section>
+
+        <!-- Tab: Lista -->
+        <section id="tab-list" class="tab-content">
+            <div class="card">
+                <div class="search-bar">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-list" placeholder="Buscar por nome..." oninput="renderFullList()">
+                    <button class="btn-clear-search" id="btn-clear-list" onclick="clearSearch('search-list', renderFullList)" style="display:none">✕</button>
+                </div>
+            </div>
+            <div class="list-actions">
+                <span id="list-count" class="text-muted">0 ingressos</span>
+                <div class="list-actions-right">
+                    <button class="btn btn-sm btn-outline" onclick="exportList()">📤 Exportar</button>
+                    <button class="btn btn-sm btn-outline btn-danger-outline" onclick="confirmClearAll()">🗑️ Limpar</button>
+                </div>
+            </div>
+            <div id="full-list" class="guest-list"></div>
+            <div id="empty-list" class="empty-state" style="display:none">
+                <span class="empty-icon">📋</span>
+                <p>Nenhum ingresso registrado ainda</p>
+            </div>
+        </section>
+
+        <!-- Tab: Check-in -->
+        <section id="tab-checkin" class="tab-content">
+            <div class="card">
+                <div class="search-bar search-bar-lg">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-checkin" placeholder="Digite o nome para check-in..." oninput="renderCheckinList()">
+                    <button class="btn-clear-search" id="btn-clear-checkin" onclick="clearSearch('search-checkin', renderCheckinList)" style="display:none">✕</button>
+                </div>
+            </div>
+            <div class="checkin-stats">
+                <div class="checkin-stat">
+                    <span class="checkin-stat-number" id="checkin-done">0</span>
+                    <span class="checkin-stat-label">Entraram</span>
+                </div>
+                <div class="checkin-stat">
+                    <span class="checkin-stat-number" id="checkin-pending">0</span>
+                    <span class="checkin-stat-label">Faltam</span>
+                </div>
+            </div>
+            <div id="checkin-list" class="guest-list"></div>
+            <div id="checkin-done-section" style="display:none">
+                <h3 class="checkin-section-title">Já entraram</h3>
+                <div id="checkin-done-list" class="guest-list"></div>
+            </div>
+            <div id="empty-checkin" class="empty-state" style="display:none">
+                <span class="empty-icon">🔍</span>
+                <p>Nenhum ingresso encontrado</p>
+            </div>
+        </section>
+
+        <!-- Tab: Dashboard -->
+        <section id="tab-dashboard" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="stat-card stat-card-primary">
+                    <div class="stat-value" id="stat-total">0</div>
+                    <div class="stat-label">Total de Ingressos</div>
+                </div>
+                <div class="stat-card stat-card-success">
+                    <div class="stat-value" id="stat-revenue">R$ 0</div>
+                    <div class="stat-label">Receita Total</div>
+                </div>
+                <div class="stat-card stat-card-info">
+                    <div class="stat-value" id="stat-checkedin">0</div>
+                    <div class="stat-label">Check-ins Feitos</div>
+                </div>
+                <div class="stat-card stat-card-warning">
+                    <div class="stat-value" id="stat-pending">0</div>
+                    <div class="stat-label">Ainda não chegaram</div>
+                </div>
+            </div>
+            <div class="card">
+                <h2 class="card-title">Lotes por quantidade</h2>
+                <div id="lote-breakdown"></div>
+            </div>
+            <div class="card">
+                <h2 class="card-title">Ações</h2>
+                <button class="btn btn-outline btn-block" onclick="exportList()" style="margin-bottom:0.5rem">📤 Exportar Lista</button>
+                <button class="btn btn-outline btn-block" onclick="shareWhatsApp()" style="margin-bottom:0.5rem">💬 WhatsApp</button>
+                <button class="btn btn-outline btn-block btn-danger-outline" onclick="confirmClearAll()">🗑️ Limpar Dados</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- ====== TELA: ADMIN (gerenciar produtores) ====== -->
+    <div id="screen-admin" class="screen">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-row">
+                    <button class="btn-back" onclick="showScreen('events')">←</button>
+                    <h1 class="logo">Administração</h1>
+                </div>
+            </div>
+        </header>
+        <div class="screen-body">
+            <div class="card">
+                <h2 class="card-title">Criar Novo Produtor</h2>
+                <form onsubmit="createProducer(event)">
+                    <div class="form-group">
+                        <label>Nome de Usuário (usado para entrar)</label>
+                        <input type="text" id="new-producer-username" placeholder="Ex: saintclair" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nome Completo</label>
+                        <input type="text" id="new-producer-name" placeholder="Ex: Saint Clair Silva" required>
+                    </div>
+                    <div class="form-group">
+                        <label>E-mail</label>
+                        <input type="email" id="new-producer-email" placeholder="email@exemplo.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Senha</label>
+                        <input type="text" id="new-producer-pass" placeholder="Senha inicial" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">👤 Criar Produtor</button>
+                </form>
+            </div>
+            <div class="card">
+                <h2 class="card-title">Produtores Cadastrados</h2>
+                <div id="producers-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== MODAIS ====== -->
+
+    <!-- Modal: confirmação -->
+    <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="modal-title">Confirmar</h3>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+                <button class="btn btn-danger" onclick="modalConfirmAction()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: editar ingresso -->
+    <div id="edit-overlay" class="modal-overlay" onclick="closeEditModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Editar Ingresso</h3>
+                <button class="modal-close" onclick="closeEditModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-id">
+                <div class="form-group"><label>Nome</label><input type="text" id="edit-name"></div>
+                <div class="form-group"><label>Lote</label>
+                    <select id="edit-lote"><option value="1º Lote">1º Lote</option><option value="2º Lote">2º Lote</option><option value="3º Lote">3º Lote</option></select>
+                </div>
+                <div class="form-group"><label>Valor (R$)</label><input type="text" id="edit-value" inputmode="numeric" oninput="formatMoneyInput(this)"></div>
+                <div class="form-group">
+                    <div class="checkbox-row"><input type="checkbox" id="edit-discount"><label for="edit-discount" class="checkbox-label">Teve desconto?</label></div>
+                </div>
+                <div class="form-group"><label>Valor do desconto (R$)</label><input type="text" id="edit-discount-info" inputmode="numeric" oninput="formatMoneyInput(this)"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeEditModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveEdit()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: novo evento -->
+    <div id="event-modal-overlay" class="modal-overlay" onclick="closeEventModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Nova Festa</h3>
+                <button class="modal-close" onclick="closeEventModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group"><label>Nome da Festa *</label><input type="text" id="new-event-name" placeholder="Ex: Bereguedê & Afins"></div>
+                <div class="form-group"><label>Data</label><input type="date" id="new-event-date"></div>
+                <div class="form-group">
+                    <label>Convidar produtores</label>
+                    <div id="event-producers-checkboxes"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeEventModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="doCreateEvent()">Criar Festa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: editar produtores do evento -->
+    <div id="edit-producers-overlay" class="modal-overlay" onclick="closeEditProducersModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Gerenciar Produtores</h3>
+                <button class="modal-close" onclick="closeEditProducersModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="edit-producers-checkboxes"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeEditProducersModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveEventProducers()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-line"></div>
+        <div class="footer-content">
+            <p>© 2026 Bereguedê & Afins. Todos os direitos reservados.</p>
+            <div class="footer-credit">
+                <span>Desenvolvido por</span>
+                <img src="cb-logo.png" alt="CB" class="footer-dev-logo">
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
