@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pixlist-v27';
+const CACHE_NAME = 'pixlist-v28';
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './cb-logo.png'];
 
 self.addEventListener('install', e => {

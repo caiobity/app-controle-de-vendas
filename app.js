@@ -83,15 +83,62 @@ async function cloudMigrate() {
 }
 
 async function dbPush(table, data) {
-    if (!db) return;
-    const { error } = await db.from(table).upsert(data);
-    if (error) console.warn('Push error:', error);
+    if (!db) { queueSync({ action: 'upsert', table, data }); return false; }
+    try {
+        const { error } = await db.from(table).upsert(data);
+        if (error) { queueSync({ action: 'upsert', table, data }); return false; }
+        return true;
+    } catch (e) { queueSync({ action: 'upsert', table, data }); return false; }
 }
 
 async function dbRemove(table, col, val) {
+    if (!db) { queueSync({ action: 'delete', table, col, val }); return false; }
+    try {
+        const { error } = await db.from(table).delete().eq(col, val);
+        if (error) { queueSync({ action: 'delete', table, col, val }); return false; }
+        return true;
+    } catch (e) { queueSync({ action: 'delete', table, col, val }); return false; }
+}
+
+// ===== SYNC QUEUE =====
+function queueSync(item) {
+    const queue = JSON.parse(localStorage.getItem('bga_sync_queue') || '[]');
+    queue.push(item);
+    localStorage.setItem('bga_sync_queue', JSON.stringify(queue));
+    showSyncStatus(false);
+}
+
+async function processQueue() {
     if (!db) return;
-    const { error } = await db.from(table).delete().eq(col, val);
-    if (error) console.warn('Delete error:', error);
+    const queue = JSON.parse(localStorage.getItem('bga_sync_queue') || '[]');
+    if (queue.length === 0) { showSyncStatus(true); return; }
+    const remaining = [];
+    for (const item of queue) {
+        try {
+            if (item.action === 'upsert') {
+                const { error } = await db.from(item.table).upsert(item.data);
+                if (error) { remaining.push(item); continue; }
+            } else if (item.action === 'delete') {
+                const { error } = await db.from(item.table).delete().eq(item.col, item.val);
+                if (error) { remaining.push(item); continue; }
+            }
+        } catch (e) { remaining.push(item); }
+    }
+    localStorage.setItem('bga_sync_queue', JSON.stringify(remaining));
+    showSyncStatus(remaining.length === 0);
+    if (remaining.length > 0) showToast('Alguns dados aguardam sincronização');
+}
+
+function showSyncStatus(synced) {
+    let el = document.getElementById('sync-status');
+    if (!el) return;
+    if (synced) {
+        el.textContent = '☁️ Sincronizado';
+        el.className = 'sync-status synced';
+    } else {
+        el.textContent = '⏳ Pendente';
+        el.className = 'sync-status pending';
+    }
 }
 
 // ===== STORAGE =====
@@ -453,13 +500,18 @@ function addGuest(e) {
     const guests = getGuests();
     guests.push(guest);
     setGuests(guests);
-    dbPush('guests', { ...toSnake(guest), event_id: currentEventId });
 
     document.getElementById('form-register').reset();
     hideDiscountField();
     updateBadge();
     renderRecent();
-    showToast(`${name} registrado!`);
+
+    const ok = await dbPush('guests', { ...toSnake(guest), event_id: currentEventId });
+    if (ok) {
+        showToast(`${name} registrado e sincronizado!`);
+    } else {
+        showToast(`${name} salvo localmente — sincroniza quando houver conexão`);
+    }
 }
 
 function formatMoneyInput(el) {
@@ -893,6 +945,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await cloudMigrate();
     await cloudPull();
+    await processQueue();
 
     ensureAdmin();
 
@@ -901,4 +954,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
         showScreen('login');
     }
+
+    setInterval(processQueue, 30000);
 });
