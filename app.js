@@ -485,7 +485,7 @@ function switchTab(tab) {
 function getGuests() { return currentEventId ? loadGuests(currentEventId) : []; }
 function setGuests(g) { if (currentEventId) saveGuests(currentEventId, g); }
 
-function addGuest(e) {
+async function addGuest(e) {
     e.preventDefault();
     if (!currentEventId) return;
     const name = document.getElementById('guest-name').value.trim();
