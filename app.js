@@ -362,9 +362,49 @@ function renderProducersList() {
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem">
             <span class="producer-role ${u.role === 'admin' ? 'role-admin' : 'role-producer'}">${u.role === 'admin' ? 'Admin' : 'Produtor'}</span>
+            <button class="btn-action btn-edit" onclick="openEditProducerModal('${u.id}')" title="Editar">✏️</button>
             ${u.role !== 'admin' ? `<button class="btn-action btn-delete" onclick="deleteProducer('${u.id}')" title="Remover">🗑️</button>` : ''}
         </div>
     </div>`).join('');
+}
+
+function openEditProducerModal(id) {
+    const users = load(KEYS.USERS) || [];
+    const u = users.find(x => x.id === id);
+    if (!u) return;
+    document.getElementById('edit-producer-id').value = u.id;
+    document.getElementById('edit-producer-username').value = u.username || u.name;
+    document.getElementById('edit-producer-name').value = u.name;
+    document.getElementById('edit-producer-email').value = u.email;
+    document.getElementById('edit-producer-pass').value = '';
+    openOverlay('edit-producer-overlay');
+}
+
+function closeEditProducerModal() { closeOverlay('edit-producer-overlay'); }
+
+function saveProducerEdit() {
+    const id = document.getElementById('edit-producer-id').value;
+    const users = load(KEYS.USERS) || [];
+    const u = users.find(x => x.id === id);
+    if (!u) return;
+    const newUsername = document.getElementById('edit-producer-username').value.trim();
+    const newName = document.getElementById('edit-producer-name').value.trim();
+    const newEmail = document.getElementById('edit-producer-email').value.trim().toLowerCase();
+    const newPass = document.getElementById('edit-producer-pass').value;
+    if (!newUsername || !newName || !newEmail) { showToast('Preencha todos os campos'); return; }
+    const duplicate = users.find(x => x.id !== id && (x.username || x.name).toLowerCase() === newUsername.toLowerCase());
+    if (duplicate) { showToast('Nome de usuário já existe'); return; }
+    const emailDup = users.find(x => x.id !== id && x.email.toLowerCase() === newEmail);
+    if (emailDup) { showToast('E-mail já cadastrado'); return; }
+    u.username = newUsername;
+    u.name = newName;
+    u.email = newEmail;
+    if (newPass) u.password = newPass;
+    save(KEYS.USERS, users);
+    dbPush('users', toSnake(u));
+    closeEditProducerModal();
+    renderProducersList();
+    showToast('Produtor atualizado!');
 }
 
 function deleteProducer(id) {
@@ -630,6 +670,8 @@ function saveEdit() {
     dbPush('guests', { ...toSnake(g), event_id: currentEventId });
     closeEditModal();
     renderFullList();
+    renderDashboard();
+    updateBadge();
     showToast('Ingresso atualizado!');
 }
 
@@ -795,11 +837,59 @@ function registerSW() {
     }
 }
 
+// ===== ADMIN TABS =====
+function switchAdminTab(tab) {
+    document.querySelectorAll('#screen-admin .nav-btn').forEach(b => b.classList.toggle('active', b.dataset.admintab === tab));
+    document.querySelectorAll('.admin-tab').forEach(t => {
+        if (t.id === 'tab-' + tab) {
+            t.classList.remove('active');
+            void t.offsetWidth;
+            t.classList.add('active');
+        } else {
+            t.classList.remove('active');
+        }
+    });
+    if (tab === 'admin-list') renderProducersList();
+}
+
+// ===== SWIPE TABS =====
+const TABS = ['register', 'list', 'checkin', 'dashboard'];
+let swipeStartX = 0;
+let swipeStartY = 0;
+let swiping = false;
+
+function getCurrentTab() {
+    const active = document.querySelector('.nav-btn.active');
+    return active ? active.dataset.tab : 'register';
+}
+
+function initSwipe() {
+    const appScreen = document.getElementById('screen-app');
+    if (!appScreen) return;
+    appScreen.addEventListener('touchstart', (e) => {
+        swipeStartX = e.touches[0].clientX;
+        swipeStartY = e.touches[0].clientY;
+        swiping = true;
+    }, { passive: true });
+
+    appScreen.addEventListener('touchend', (e) => {
+        if (!swiping) return;
+        swiping = false;
+        const dx = e.changedTouches[0].clientX - swipeStartX;
+        const dy = e.changedTouches[0].clientY - swipeStartY;
+        if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return;
+        const cur = TABS.indexOf(getCurrentTab());
+        if (dx < 0 && cur < TABS.length - 1) switchTab(TABS[cur + 1]);
+        else if (dx > 0 && cur > 0) switchTab(TABS[cur - 1]);
+    }, { passive: true });
+}
+
 // ===== BOOT =====
 document.addEventListener('DOMContentLoaded', async () => {
     initSupabase();
     createFloatingLogos();
     registerSW();
+    initSwipe();
 
     await cloudMigrate();
     await cloudPull();

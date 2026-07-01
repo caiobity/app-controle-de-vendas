@@ -127,6 +127,7 @@
                         <label for="guest-lote">Lote *</label>
                         <select id="guest-lote" required>
                             <option value="">Selecione o lote</option>
+                            <option value="Lote Amigo">Lote Amigo</option>
                             <option value="1º Lote">1º Lote</option>
                             <option value="2º Lote">2º Lote</option>
                             <option value="3º Lote">3º Lote</option>
@@ -253,7 +254,18 @@
                 </div>
             </div>
         </header>
+        <nav class="nav">
+            <button class="nav-btn active" data-admintab="admin-create" onclick="switchAdminTab('admin-create')">
+                <span class="nav-icon">➕</span>
+                <span class="nav-label">Criar</span>
+            </button>
+            <button class="nav-btn" data-admintab="admin-list" onclick="switchAdminTab('admin-list')">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Cadastrados</span>
+            </button>
+        </nav>
         <div class="screen-body">
+            <div id="tab-admin-create" class="admin-tab active">
             <div class="card">
                 <h2 class="card-title">Criar Novo Produtor</h2>
                 <form onsubmit="createProducer(event)">
@@ -276,9 +288,12 @@
                     <button type="submit" class="btn btn-primary btn-block">👤 Criar Produtor</button>
                 </form>
             </div>
+            </div>
+            <div id="tab-admin-list" class="admin-tab">
             <div class="card">
                 <h2 class="card-title">Produtores Cadastrados</h2>
                 <div id="producers-list"></div>
+            </div>
             </div>
         </div>
     </div>
@@ -311,7 +326,7 @@
                 <input type="hidden" id="edit-id">
                 <div class="form-group"><label>Nome</label><input type="text" id="edit-name"></div>
                 <div class="form-group"><label>Lote</label>
-                    <select id="edit-lote"><option value="1º Lote">1º Lote</option><option value="2º Lote">2º Lote</option><option value="3º Lote">3º Lote</option></select>
+                    <select id="edit-lote"><option value="Lote Amigo">Lote Amigo</option><option value="1º Lote">1º Lote</option><option value="2º Lote">2º Lote</option><option value="3º Lote">3º Lote</option></select>
                 </div>
                 <div class="form-group"><label>Valor (R$)</label><input type="text" id="edit-value" inputmode="numeric" oninput="formatMoneyInput(this)"></div>
                 <div class="form-group">
@@ -344,6 +359,27 @@
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeEventModal()">Cancelar</button>
                 <button class="btn btn-primary" onclick="doCreateEvent()">Criar Festa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: editar produtor -->
+    <div id="edit-producer-overlay" class="modal-overlay" onclick="closeEditProducerModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Editar Produtor</h3>
+                <button class="modal-close" onclick="closeEditProducerModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-producer-id">
+                <div class="form-group"><label>Nome de Usuário</label><input type="text" id="edit-producer-username"></div>
+                <div class="form-group"><label>Nome Completo</label><input type="text" id="edit-producer-name"></div>
+                <div class="form-group"><label>E-mail</label><input type="email" id="edit-producer-email"></div>
+                <div class="form-group"><label>Nova Senha (deixe vazio para manter)</label><input type="text" id="edit-producer-pass" placeholder="••••••"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeEditProducerModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveProducerEdit()">Salvar</button>
             </div>
         </div>
     </div>
